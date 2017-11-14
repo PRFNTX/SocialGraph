@@ -1,101 +1,142 @@
 import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
-//import d3 from 'd3'
-import d3 from './box'
 import axios from 'axios'
+// import { LineChart, XAxis, YAxis, Tooltip, CartesianAxis, CartesianGrid, Line } from 'recharts'
+import ReactHighcharts from 'react-highcharts/ReactHighstock';
+// import ReactHighstock from 'react-highstock';
 
 class App extends Component {
   constructor() {
     super();
 
-    this.margin = {top: 10, right: 50, bottom: 20, left: 50},
-    this.width = 120 - this.margin.left - this.margin.right,
-    this.height = 500 - this.margin.top - this.margin.bottom;
-
-    this.min = Infinity,
-    this.max = -Infinity;
-
-    this.chart = d3.box()
-    .whiskers(this.iqr(1.5))
-    .width(this.width)
-    .height(this.height);
-    
     this.state = {
-      data: []
+      symbol: 'MSFT',
+      data: [],
+      options:[],
     }
-}
-  componentWillMount() {
- 
+    //this.chart = '';
+    this.getData = this.getData.bind(this);
     
-      let key = '2SV0X4IAITTAXO54';
-      let url = 'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=MSFT&interval=1min&apikey=';
-      let embededData = [];
-
-      axios.get(url+key)
-      .then(result=>{
-        let min = Infinity, max = -Infinity;
-        for (let minData in result.data['Time Series (1min)']) {
-          let ret=[]
-          // console.log(minData)
-          for (let point in result.data['Time Series (1min)'][minData]) {
-            let dataItem = result.data['Time Series (1min)'][minData][point];
-            ret.push(dataItem);
-           
-          }
-        
-          //let n = minData.map(item=>[item['1. open'], item['2. high'], item['3. low'], item['4. close']]);
-          
-          ret.splice(ret.length-1,1)
-          console.log(ret);
-          ret.forEach(val=>{
-            max = max < val ? val : max;
-            min = min > val ? val : min;
-          })
-          embededData.push(ret);
-        }
-          var data = embededData;
-
-          this.chart.domain([min, max]);
-            
-              var svg = d3.select("#root").selectAll("svg")
-                  .data(data)
-                .enter().append("svg")
-                  .attr("class", "box")
-                  .attr("width", this.width + this.margin.left + this.margin.right)
-                  .attr("height", this.height + this.margin.bottom + this.margin.top)
-                .append("g")
-                  .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")")
-                  .call(this.chart);
-            
-
-                  
-        
-      })
-      .catch(error=>{
-        console.log(error);
-      })
-
-  
   }
-    // Returns a function to compute the interquartile range.
-  iqr(k) {
-    return function(d, i) {
-      var q1 = d.quartiles[0],
-          q3 = d.quartiles[2],
-          iqr = (q3 - q1) * k,
-          i = -1,
-          j = d.length;
-      while (d[++i] < q1 - iqr);
-      while (d[--j] > q3 + iqr);
-      return [i, j];
-    };
+
+  componentDidMount() {
+    //this.getData();
+  }
+
+  componentDidUpdate() {
+    //this.chart.getChart().addSeries({ name: 'open', data: this.state.data[0] });
+    //this.chart.getChart().addSeries({ name: 'high', data: this.state.data[1] });
+    //this.chart.getChart().addSeries({ name: 'low', data: this.state.data[2] });
+    //this.chart.getChart().addSeries({ name: 'close', data: this.state.data[3] });
+}
+  tickerSearch=()=>{
+    let url = "http://d.yimg.com/autoc.finance.yahoo.com/autoc?lang=en&query="
+    let query=this.search.value
+    console.log(this.search.value)
+    let opsOut
+    axios.get("/stocks?link="+url+query).then(
+      (res)=>{
+        console.log(res)
+          opsOut=res.data.ResultSet.Result.map((val,i)=>{
+            console.log(val);
+            return <option value={val.symbol} key={i}>{val.name}</option>
+          })
+          this.setState({
+            options:opsOut,
+          })
+      },
+      (err)=>{
+        console.log(err)
+      }
+    )
+    
+  }
+
+  getData(symbol) {
+    let chart = this.chart.getChart();
+    let embededData = [];
+    let key = '2SV0X4IAITTAXO54';
+    let timeSeries = 'DAILY_ADJUSTED';
+    let url = `https://www.alphavantage.co/query?function=TIME_SERIES_${timeSeries}&symbol=${symbol}&outputsize=full&apikey=`;
+    axios.get(url + key)
+      .then((result) => {
+        console.log('result of axios get:');
+        console.log(result);
+        //let min = Infinity, max = -Infinity;
+        const timeRange = 'Time Series (Daily)'
+        //const timeRange = 'Weekly Time Series'
+        for (let minData in result.data[timeRange]) {
+          let ret = []
+         
+          for (let point in result.data[timeRange][minData]) {
+            
+            let dataItem = result.data[timeRange][minData][point];
+            ret.push(Number(dataItem));
+
+          }
+
+          ret.splice(ret.length - 1, 1)
+          ret.unshift(Number(new Date(minData)));
+          console.log(ret)
+          embededData.unshift(ret);
+        }
+
+        console.log('embededData:');
+        console.log(embededData);
+        console.log(chart)
+        let chartData=embededData
+        //let chartData = [[], [], [], [], []];
+        // embededData.forEach((set) => {
+          // console.log(set)
+          // set.forEach((item, i) => {
+            // chartData[i].push(item)
+          // })
+        // })
+        this.setState({
+          data: chartData
+        })
+      })
   }
 
   render() {
+    const config = {
+      
+      rangeSelector: {
+        selected: 1
+    },
+
+    title: {
+        text: 'AAPL Stock Price'
+    },
+
+    series: [{
+        type: 'candlestick',
+        name: 'AAPL Stock Price',
+        data: this.state.data,
+        dataGrouping: {
+            units: [
+                [
+                    'day', // unit name
+                    [1] // allowed multiples
+                ], [
+                    'week',
+                    [1, 2, 3, 4, 6]
+                ]
+            ]
+        }
+    }]
+  };
+    let ops 
     return (
       <div className="App">
-
+        <input type="text" ref={(ref)=>this.search=ref} placeholder="search..."/>
+        <button onClick={()=>{this.tickerSearch()}}>Find</button>
+        <select name="symbol" ref={(ref)=>this.symbol=ref} onChange={(e)=>this.getData(e.nativeEvent.target.value)}>
+          {this.state.options}
+        </select>
+        <button onClick={()=>this.getData(this.symbol.value)}>Update</button>
+        <ReactHighcharts config={config} ref={(ref) => this.chart = ref}></ReactHighcharts>
       </div>
     );
   }
